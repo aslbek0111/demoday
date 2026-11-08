@@ -1,4 +1,12 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
 
- 
+/* Native element color-scheme sync */
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
