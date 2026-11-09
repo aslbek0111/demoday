@@ -161,7 +161,7 @@ export default function HomePage() {
                 </strong>
               </span>
               <Link
-                href="/places"
+                href="/barcha"
                 className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200 dark:border-indigo-800 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
               >
                 <span>{t("view_all_places_count")}</span>
@@ -287,7 +287,7 @@ export default function HomePage() {
           {/* Barcha joylarga o'tish tugmasi */}
           <div className="mt-10 text-center">
             <Link
-              href="/places"
+              href="/barcha"
               className="inline-flex items-center gap-2 px-6 py-3.5 bg-slate-900 hover:bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white font-bold text-sm rounded-2xl shadow-md transition-all active:scale-95"
             >
               <span>{t("view_all_button")}</span>

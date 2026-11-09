@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLanguage } from "../app/language-provider";
+import { places } from "../data/places";
 
 export default function Footer() {
   const { t } = useLanguage();
@@ -39,9 +40,15 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/places" className="hover:text-white transition-colors flex items-center gap-1.5">
+                <Link href="/barcha" className="hover:text-white transition-colors flex items-center gap-1.5">
                   <span>{t("nav_places")}</span>
-                  <span className="text-[10px] bg-slate-800 dark:bg-slate-900 text-indigo-400 border border-indigo-500/30 px-1.5 py-0.2 rounded-full font-bold">24</span>
+                  <span className="text-[10px] bg-slate-800 dark:bg-slate-900 text-indigo-400 border border-indigo-500/30 px-1.5 py-0.2 rounded-full font-bold">{places.length}</span>
+                </Link>
+              </li>
+              <li>
+                <Link href="/map" className="hover:text-white transition-colors flex items-center gap-1.5">
+                  <span>🗺️</span>
+                  <span>{t("nav_map")}</span>
                 </Link>
               </li>
               <li>
