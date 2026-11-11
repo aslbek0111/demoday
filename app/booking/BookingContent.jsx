@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
-import { places, getLocalizedPlace } from "../../data/places";
+import { places, getLocalizedPlace, formatPrice } from "../../data/places";
+import { validatePromoCode } from "../../data/promo-codes";
 import { useLanguage } from "../language-provider";
 
 export default function BookingContent() {
@@ -25,6 +26,12 @@ export default function BookingContent() {
   const [guestCount, setGuestCount] = useState(2);
   const [notes, setNotes] = useState("");
 
+  // Promokod holatlari
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [promoError, setPromoError] = useState(null);
+  const [promoSuccess, setPromoSuccess] = useState(false);
+
   // Natija holati (Muvaffaqiyatli band qilindi)
   const [isSuccess, setIsSuccess] = useState(false);
   const [bookingTicket, setBookingTicket] = useState(null);
@@ -36,7 +43,59 @@ export default function BookingContent() {
   const durationUnit = currentPlace.categoryKey === "resort" ? t("day_unit") : t("hour_unit");
 
   // Narxni avtomatik hisoblash
-  const totalPrice = currentPlace.price * durationHours;
+  const subtotal = currentPlace.price * durationHours;
+
+  // Agar promokod qo'llangan bo'lsa, chegirmasini jonli hisoblash
+  const currentPromoValidation = appliedPromo
+    ? validatePromoCode({
+        code: appliedPromo.code,
+        totalPrice: subtotal,
+        categoryKey: currentPlace.categoryKey,
+      })
+    : null;
+
+  const discountAmount =
+    currentPromoValidation && currentPromoValidation.valid
+      ? currentPromoValidation.discountAmount
+      : 0;
+
+  const finalPrice = Math.max(0, subtotal - discountAmount);
+
+  const handleApplyPromo = (codeToApply = null) => {
+    const targetCode = typeof codeToApply === "string" ? codeToApply : promoInput;
+    setPromoError(null);
+    setPromoSuccess(false);
+
+    const res = validatePromoCode({
+      code: targetCode,
+      totalPrice: subtotal,
+      categoryKey: currentPlace.categoryKey,
+    });
+
+    if (!res.valid) {
+      if (res.errorKey === "promo_min_amount") {
+        setPromoError(
+          t("promo_min_amount", { amount: formatPrice(res.minAmount, language) })
+        );
+      } else {
+        setPromoError(t(res.errorKey));
+      }
+      setAppliedPromo(null);
+      return;
+    }
+
+    setAppliedPromo(res);
+    setPromoInput(res.code);
+    setPromoSuccess(true);
+    setPromoError(null);
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setPromoInput("");
+    setPromoError(null);
+    setPromoSuccess(false);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -60,8 +119,11 @@ export default function BookingContent() {
       durationHours,
       durationUnit,
       guestCount,
-      totalPrice,
-      createdAt: new Date().toLocaleDateString(language === "ru" ? "ru-RU" : "uz-UZ"),
+      originalPrice: subtotal,
+      discountAmount,
+      totalPrice: finalPrice,
+      promoCode: appliedPromo?.code || null,
+      createdAt: new Date().toLocaleDateString(language === "en" ? "en-US" : "ru-RU"),
     };
 
     setBookingTicket(ticket);
@@ -75,6 +137,7 @@ export default function BookingContent() {
     setPhone("+998 ");
     setDate("");
     setNotes("");
+    handleRemovePromo();
   };
 
   return (
@@ -152,10 +215,30 @@ export default function BookingContent() {
                   </span>
                 </div>
 
+                {bookingTicket.discountAmount > 0 && (
+                  <>
+                    <div className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-2 text-xs">
+                      <span className="text-slate-500 dark:text-slate-400">{t("promo_subtotal")}</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200 line-through">
+                        {formatPrice(bookingTicket.originalPrice, language)} {t("currency")}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-b border-slate-200 dark:border-slate-700 pb-2 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                      <span className="flex items-center gap-1">
+                        <span>🏷️</span>
+                        <span>{t("promo_discount_label")} ({bookingTicket.promoCode})</span>
+                      </span>
+                      <span className="font-bold">
+                        -{formatPrice(bookingTicket.discountAmount, language)} {t("currency")}
+                      </span>
+                    </div>
+                  </>
+                )}
+
                 <div className="flex justify-between pt-1">
                   <span className="text-slate-600 dark:text-slate-300 font-bold">{t("ticket_calculated")}</span>
                   <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
-                    {bookingTicket.totalPrice.toLocaleString(language === "ru" ? "ru-RU" : "uz-UZ")} {t("currency")}
+                    {formatPrice(bookingTicket.totalPrice, language)} {t("currency")}
                   </span>
                 </div>
               </div>
@@ -267,7 +350,7 @@ export default function BookingContent() {
                       <div>
                         <span className="text-xs text-indigo-900 dark:text-indigo-300 font-medium">{t("base_price")}</span>
                         <div className="text-xl font-black text-indigo-700 dark:text-indigo-300">
-                          {currentPlace.price.toLocaleString(language === "ru" ? "ru-RU" : "uz-UZ")} {t("currency")}
+                          {formatPrice(currentPlace.price, language)} {t("currency")}
                           <span className="text-xs font-normal text-indigo-500 dark:text-indigo-400">
                             {" "}
                             / {currentPlace.priceUnit}
@@ -442,26 +525,158 @@ export default function BookingContent() {
                       ></textarea>
                     </div>
 
+                    {/* Promokod Bo'limi (Promo Code System) */}
+                    <div className="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-200 dark:border-slate-700/80">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                          <span>🏷️</span>
+                          <span>{t("promo_code_label")}</span>
+                        </label>
+                        {!appliedPromo && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                            <span>{language === "ru" ? "Попробуйте:" : "Masalan:"}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleApplyPromo("JOYBAND20")}
+                              className="font-mono font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                            >
+                              JOYBAND20
+                            </button>
+                            <span>|</span>
+                            <button
+                              type="button"
+                              onClick={() => handleApplyPromo("WELCOME10")}
+                              className="font-mono font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                            >
+                              WELCOME10
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {appliedPromo ? (
+                        <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-sm font-bold shadow-xs">
+                              ✓
+                            </span>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-black text-sm text-emerald-800 dark:text-emerald-300 tracking-wider">
+                                  {appliedPromo.code}
+                                </span>
+                                <span className="text-[10px] bg-emerald-200 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 font-bold px-1.5 py-0.2 rounded-md">
+                                  {appliedPromo.discountType === "percent"
+                                    ? `-${appliedPromo.discountValue}%`
+                                    : `-${formatPrice(appliedPromo.discountValue, language)} ${t("currency")}`}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                                {language === "ru" ? appliedPromo.descriptionRu : appliedPromo.description}
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={handleRemovePromo}
+                            className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 px-2 py-1 rounded-lg hover:bg-rose-100/50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+                          >
+                            {t("promo_remove_btn")}
+                          </button>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={promoInput}
+                              onChange={(e) => {
+                                setPromoInput(e.target.value.toUpperCase());
+                                setPromoError(null);
+                              }}
+                              placeholder={t("promo_code_placeholder")}
+                              className="flex-1 uppercase font-mono tracking-wider px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm text-slate-800 dark:text-slate-100 placeholder:normal-case placeholder:font-sans placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleApplyPromo()}
+                              disabled={!promoInput.trim()}
+                              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
+                            >
+                              {t("promo_apply_btn")}
+                            </button>
+                          </div>
+
+                          {promoError && (
+                            <p className="mt-2 text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1 font-medium">
+                              <span>⚠️</span>
+                              <span>{promoError}</span>
+                            </p>
+                          )}
+
+                          {promoSuccess && (
+                            <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-semibold">
+                              <span>✓</span>
+                              <span>{t("promo_applied_success")}</span>
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
                     {/* Jonli hisob-kitob (Kalkulyator) */}
                     <div className="bg-slate-100 dark:bg-slate-800/80 rounded-2xl p-4 border border-slate-300 dark:border-slate-700 space-y-2">
                       <div className="flex justify-between text-xs text-slate-600 dark:text-slate-400">
                         <span>
-                          {currentPlace.price.toLocaleString(language === "ru" ? "ru-RU" : "uz-UZ")} {t("currency")} × {durationHours}{" "}
+                          {formatPrice(currentPlace.price, language)} {t("currency")} × {durationHours}{" "}
                           {durationUnit}:
                         </span>
-                        <span className="font-semibold text-slate-800 dark:text-slate-200">
-                          {totalPrice.toLocaleString(language === "ru" ? "ru-RU" : "uz-UZ")} {t("currency")}
+                        <span
+                          className={`font-semibold ${
+                            discountAmount > 0
+                              ? "line-through text-slate-400 dark:text-slate-500"
+                              : "text-slate-800 dark:text-slate-200"
+                          }`}
+                        >
+                          {formatPrice(subtotal, language)} {t("currency")}
                         </span>
                       </div>
+
+                      {discountAmount > 0 && (
+                        <div className="flex justify-between text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                          <span className="flex items-center gap-1">
+                            <span>🏷️</span>
+                            <span>
+                              {t("promo_discount_label")} ({appliedPromo?.code})
+                            </span>
+                          </span>
+                          <span>
+                            -{formatPrice(discountAmount, language)} {t("currency")}
+                          </span>
+                        </div>
+                      )}
+
                       <div className="flex justify-between text-xs text-emerald-600 dark:text-emerald-400">
                         <span>{t("commission_label")}</span>
                         <span className="font-bold">{t("commission_free")}</span>
                       </div>
+
                       <div className="border-t border-slate-200 dark:border-slate-700 pt-2 flex justify-between items-center">
-                        <span className="text-sm font-bold text-slate-900 dark:text-white">{t("total_payment")}</span>
-                        <span className="text-xl font-black text-indigo-600 dark:text-indigo-400">
-                          {totalPrice.toLocaleString(language === "ru" ? "ru-RU" : "uz-UZ")} {t("currency")}
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">
+                          {t("total_payment")}
                         </span>
+                        <div className="text-right">
+                          <span className="text-xl font-black text-indigo-600 dark:text-indigo-400 block">
+                            {formatPrice(finalPrice, language)} {t("currency")}
+                          </span>
+                          {discountAmount > 0 && (
+                            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                              {t("promo_savings")} {formatPrice(discountAmount, language)}{" "}
+                              {t("currency")}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 

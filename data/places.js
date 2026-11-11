@@ -1605,3 +1605,84 @@ export function getLocalizedCategoryName(category, language) {
   }
   return category.name;
 }
+
+export function formatPrice(price, language = "uz") {
+  if (price === null || price === undefined || price === "" || isNaN(Number(price))) {
+    return "";
+  }
+  const num = Number(price);
+  if (language === "en") {
+    return num.toLocaleString("en-US");
+  }
+  // O'zbek va rus tillari uchun narxlar probel bilan (120 000) formatlanadi.
+  // "uz-UZ" brauzerlarda to'liq qo'llab-quvvatlanmagani sababli brauzer en-US ga tushib
+  // vergul (120,000) chiqarishi va server (120 000) bilan Hydration Error berishining oldini oladi.
+  return num.toLocaleString("ru-RU");
+}
+
+// Toifalar bo'yicha yuqori sifatli qo'shimcha galereya rasmlari (Unsplash)
+const categoryGalleryPool = {
+  restaurant: [
+    { url: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80", caption: "Asosiy zal va shinam atmosfera", captionRu: "Главный зал и уютная атмосфера", category: "interior" },
+    { url: "https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=1200&q=80", caption: "VIP xona va maxsus dasturxon", captionRu: "VIP-зал и сервировка стола", category: "interior" },
+    { url: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80", caption: "Restoran tashqi ko'rinishi va kirish qismi", captionRu: "Фасад ресторана и входная зона", category: "exterior" },
+    { url: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80", caption: "Oshpazlardan mualliflik taomlari", captionRu: "Фирменные блюда от шеф-повара", category: "food" },
+    { url: "https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?auto=format&fit=crop&w=1200&q=80", caption: "Ichimliklar va bar qismi", captionRu: "Барная зона и напитки", category: "amenity" },
+  ],
+  sport: [
+    { url: "https://images.unsplash.com/photo-1529900748604-07564a03e7a6?auto=format&fit=crop&w=1200&q=80", caption: "Yangi maysazor va yoritish projektorlari", captionRu: "Качественный газон и освещение", category: "exterior" },
+    { url: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80", caption: "Futbol maydoni umumiy ko'rinishi", captionRu: "Общий вид футбольного поля", category: "exterior" },
+    { url: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80", caption: "Mashg'ulotlar va trenajyorlar zali", captionRu: "Тренажерная и тренировочная зона", category: "interior" },
+    { url: "https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=1200&q=80", caption: "Kiyinish va dush xonalari", captionRu: "Раздевалки и душевые комнаты", category: "amenity" },
+    { url: "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1200&q=80", caption: "Tomoshabinlar va dam olish hududi", captionRu: "Трибуны и зона отдыха", category: "amenity" },
+  ],
+  resort: [
+    { url: "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80", caption: "Tog' manzarasi va hovli ko'rinishi", captionRu: "Вид на горы и придомовую территорию", category: "exterior" },
+    { url: "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?auto=format&fit=crop&w=1200&q=80", caption: "Isitiladigan toza suvli basseyn", captionRu: "Подогреваемый бассейн с чистой водой", category: "amenity" },
+    { url: "https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=1200&q=80", caption: "Katta va shinam yashash xonasi", captionRu: "Просторная и уютная гостиная", category: "interior" },
+    { url: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1200&q=80", caption: "Fin saunasi va dam olish xonasi", captionRu: "Финская сауна и комната отдыха", category: "amenity" },
+    { url: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80", caption: "Tungi projektorlar va ochiq ayvon", captionRu: "Ночная подсветка и открытая терраса", category: "exterior" },
+  ],
+  coworking: [
+    { url: "https://images.unsplash.com/photo-1527192491265-7e15c55b1ed2?auto=format&fit=crop&w=1200&q=80", caption: "Ochiq ish hududi (Open Space)", captionRu: "Открытая рабочая зона (Open Space)", category: "interior" },
+    { url: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80", caption: "Muzokaralar va majlislar zali (Meeting Room)", captionRu: "Переговорная комната (Meeting Room)", category: "interior" },
+    { url: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80", caption: "Shaxsiy sokin kabinetlar", captionRu: "Индивидуальные тихие кабинеты", category: "interior" },
+    { url: "https://images.unsplash.com/photo-1521017432531-fbd92d768814?auto=format&fit=crop&w=1200&q=80", caption: "Kofe-zona va dam olish maydoni", captionRu: "Кофе-зона и зона отдыха", category: "amenity" },
+    { url: "https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=1200&q=80", caption: "Yuqori tezlikdagi internet va qulay ish o'rindiqlari", captionRu: "Высокоскоростной интернет и эргономичные места", category: "amenity" },
+  ],
+  cafe: [
+    { url: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&w=1200&q=80", caption: "Shinam interyer va qulay o'rindiqlar", captionRu: "Уютный интерьер и мягкие места", category: "interior" },
+    { url: "https://images.unsplash.com/photo-1442512595331-e89e73853f31?auto=format&fit=crop&w=1200&q=80", caption: "Mualliflik qahva va ichimliklar", captionRu: "Авторский кофе и напитки", category: "food" },
+    { url: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=80", caption: "Shirinliklar va pishiriqlar vitrinasi", captionRu: "Витрина свежих десертов и выпечки", category: "food" },
+    { url: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=1200&q=80", caption: "Ochiq yozgi terassa", captionRu: "Открытая летняя терраса", category: "exterior" },
+    { url: "https://images.unsplash.com/photo-1445116572660-238429888843?auto=format&fit=crop&w=1200&q=80", caption: "Do'stlar davrasida xordiq chiqarish", captionRu: "Отдых в кругу друзей", category: "amenity" },
+  ],
+};
+
+/**
+ * Joy uchun boyitilgan rasmlar galereyasini olish
+ */
+export function getPlaceGallery(place) {
+  if (!place) return [];
+
+  // Agar joy ob'ektida alohida images massivi berilgan bo'lsa
+  if (Array.isArray(place.images) && place.images.length > 0) {
+    return place.images;
+  }
+
+  const pool = categoryGalleryPool[place.categoryKey] || categoryGalleryPool.restaurant;
+  
+  // Asosiy muqova rasmini birinchi o'ringa qo'yish
+  const coverImage = {
+    url: place.image,
+    caption: place.name,
+    captionRu: place.nameRu || place.name,
+    category: "general",
+    isCover: true,
+  };
+
+  // Asosiy rasm bilan pool rasmlarini birlashtirish (takrorlanishlarsiz)
+  const otherImages = pool.filter((img) => img.url !== place.image);
+  return [coverImage, ...otherImages];
+}
+

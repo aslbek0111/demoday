@@ -21,7 +21,7 @@ export function LanguageProvider({ children }) {
   useEffect(() => {
     try {
       const savedLanguage = localStorage.getItem("language");
-      if (savedLanguage && (savedLanguage === "uz" || savedLanguage === "ru")) {
+      if (savedLanguage && (savedLanguage === "uz" || savedLanguage === "ru" || savedLanguage === "en")) {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setLanguage(savedLanguage);
       }
@@ -31,7 +31,7 @@ export function LanguageProvider({ children }) {
   }, []);
 
   const changeLanguage = (lang) => {
-    if (lang === "uz" || lang === "ru") {
+    if (lang === "uz" || lang === "ru" || lang === "en") {
       setLanguage(lang);
       try {
         localStorage.setItem("language", lang);

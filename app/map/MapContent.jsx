@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useTheme } from "next-themes";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
-import { places, categories, getLocalizedPlace, getLocalizedCategoryName } from "../../data/places";
+import { places, categories, getLocalizedPlace, getLocalizedCategoryName, formatPrice } from "../../data/places";
 import { useLanguage } from "../language-provider";
 
 // Leaflet faqat brauzerda ishlashi uchun ssr: false bilan yuklanadi
@@ -48,32 +48,48 @@ export default function MapContent() {
 
   const isDark = mounted ? resolvedTheme === "dark" || theme === "dark" : false;
 
+  // Joylar ma'lumotlarini xavfsiz massiv sifatida olish (massiv, { places: [...] } yoki { data: [...] } bo'lishidan qat'i nazar)
+  const rawPlacesList = useMemo(() => {
+    if (Array.isArray(places)) return places;
+    if (places && Array.isArray(places.places)) return places.places;
+    if (places && Array.isArray(places.data)) return places.data;
+    return [];
+  }, []);
+
+  const rawCategoriesList = useMemo(() => {
+    if (Array.isArray(categories)) return categories;
+    if (categories && Array.isArray(categories.categories)) return categories.categories;
+    return [];
+  }, []);
+
   // Joylarni tanlangan tilga moslash
   const localizedPlaces = useMemo(() => {
-    return places.map((p) => getLocalizedPlace(p, language));
-  }, [language]);
+    return rawPlacesList.map((p) => getLocalizedPlace(p, language));
+  }, [rawPlacesList, language]);
 
   // Shaharlar ro'yxati
   const cities = useMemo(() => {
     const list = new Set();
-    places.forEach((p) => {
+    rawPlacesList.forEach((p) => {
       const loc = getLocalizedPlace(p, language);
-      const mainCity = loc.city.split(",")[0].trim();
-      list.add(mainCity);
+      if (loc && loc.city) {
+        const mainCity = loc.city.split(",")[0].trim();
+        list.add(mainCity);
+      }
     });
     return ["all", ...Array.from(list)];
-  }, [language]);
+  }, [rawPlacesList, language]);
 
   // Kategoriyalar bo'yicha hisoblagich
   const categoryCounts = useMemo(() => {
-    const counts = { all: places.length };
-    categories.forEach((c) => {
-      if (c.id !== "all") {
-        counts[c.id] = places.filter((p) => p.categoryKey === c.id).length;
+    const counts = { all: rawPlacesList.length };
+    rawCategoriesList.forEach((c) => {
+      if (c && c.id !== "all") {
+        counts[c.id] = rawPlacesList.filter((p) => p && p.categoryKey === c.id).length;
       }
     });
     return counts;
-  }, []);
+  }, [rawPlacesList, rawCategoriesList]);
 
   // Filtrlash mantiqi
   const filteredPlaces = useMemo(() => {
@@ -159,7 +175,7 @@ export default function MapContent() {
                   <span>🗺️ {t("map_badge")}</span>
                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 dark:bg-indigo-400"></span>
                   <span>
-                    {filteredPlaces.length} / {places.length} {t("places_badge_count")}
+                    {filteredPlaces.length} / {rawPlacesList.length} {t("places_badge_count")}
                   </span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
@@ -305,7 +321,7 @@ export default function MapContent() {
 
               {/* Kategoriya tugmalari (chiplar) */}
               <div className="flex items-center gap-2 overflow-x-auto pt-1 pb-0.5 no-scrollbar">
-                {categories.map((cat) => {
+                {rawCategoriesList.map((cat) => {
                   const count = categoryCounts[cat.id] || 0;
                   const isActive = selectedCategory === cat.id;
                   const icons = {
@@ -444,9 +460,7 @@ export default function MapContent() {
                                 {t("price_label")}
                               </span>
                               <span className="font-extrabold text-xs sm:text-sm text-slate-900 dark:text-white">
-                                {place.price?.toLocaleString(
-                                  language === "ru" ? "ru-RU" : "uz-UZ"
-                                )}{" "}
+                                {formatPrice(place.price, language)}{" "}
                                 {t("currency")}
                               </span>
                             </div>
@@ -617,9 +631,7 @@ export default function MapContent() {
                     {t("price_label")}
                   </span>
                   <div className="font-black text-2xl text-slate-900 dark:text-white">
-                    {detailModalPlace.price?.toLocaleString(
-                      language === "ru" ? "ru-RU" : "uz-UZ"
-                    )}{" "}
+                    {formatPrice(detailModalPlace.price, language)}{" "}
                     <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
                       {t("currency")}
                     </span>

@@ -4,16 +4,23 @@ import { useMemo } from "react";
 import Link from "next/link";
 import Navbar from "../../../components/Navbar";
 import Footer from "../../../components/Footer";
-import { places, getLocalizedPlace } from "../../../data/places";
+import AdvancedGallery from "../../../components/AdvancedGallery";
+import { places, getLocalizedPlace, formatPrice } from "../../../data/places";
 import { useLanguage } from "../../language-provider";
+import { useLocation } from "../../location-provider";
 
 export default function PlaceDetailContent({ id }) {
   const { language, t } = useLanguage();
+  const { userCoords, isLocating, locationDenied, requestLocation, getDistanceFromUser } = useLocation();
 
   const place = useMemo(() => {
     const raw = places.find((p) => p.id === Number(id)) || places[0];
     return getLocalizedPlace(raw, language);
   }, [id, language]);
+
+  const distanceInfo = place?.coords
+    ? getDistanceFromUser(place.coords, language)
+    : null;
 
   if (!place) {
     return (
@@ -53,43 +60,8 @@ export default function PlaceDetailContent({ id }) {
             </span>
           </nav>
 
-          {/* Banner va Asosiy Rasm */}
-          <div className="relative h-72 sm:h-96 w-full rounded-3xl overflow-hidden shadow-lg bg-slate-200 dark:bg-slate-800">
-            <img
-              src={place.image}
-              alt={place.name}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent"></div>
-
-            <div className="absolute top-4 left-4 flex items-center gap-2">
-              <span
-                className={`text-white text-xs font-bold px-3 py-1 rounded-full shadow-md ${
-                  place.badgeColor || "bg-indigo-600"
-                }`}
-              >
-                {place.badge}
-              </span>
-              <span className="bg-white/95 dark:bg-slate-900/95 backdrop-blur text-slate-800 dark:text-slate-100 text-xs font-bold px-3 py-1 rounded-full shadow-md">
-                ⭐ {place.rating} ({place.reviewsCount} {t("rating_unit")})
-              </span>
-            </div>
-
-            <div className="absolute bottom-6 left-6 right-6 text-white">
-              <p className="text-xs uppercase font-semibold text-indigo-300 tracking-wider mb-1">
-                {place.category}
-              </p>
-              <h1 className="text-2xl sm:text-4xl font-black tracking-tight drop-shadow-md">
-                {place.name}
-              </h1>
-              <p className="text-sm text-slate-200 flex items-center gap-1.5 mt-2 opacity-90">
-                <span>📍</span>
-                <span>
-                  {place.city} — {place.address}
-                </span>
-              </p>
-            </div>
-          </div>
+          {/* Kengaytirilgan Galereya (Bento Grid + Lightbox) */}
+          <AdvancedGallery place={place} />
 
           {/* Asosiy Kontent va Yon Panel */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -97,11 +69,38 @@ export default function PlaceDetailContent({ id }) {
             <div className="lg:col-span-8 space-y-8">
               {/* Lokatsiya va Status Paneli */}
               <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                    {place.hasExactCoords ? t("exact_location") : t("unverified_location")}
-                  </span>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                      {place.hasExactCoords ? t("exact_location") : t("unverified_location")}
+                    </span>
+                  </div>
+
+                  {/* Masofa Ko'rsatkichi */}
+                  {distanceInfo?.formatted ? (
+                    <span
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200/70 dark:border-indigo-800/70 shadow-xs"
+                      title={t("distance_badge_title")}
+                    >
+                      <span className="text-indigo-600 dark:text-indigo-400">📍</span>
+                      <span>{distanceInfo.formatted}</span>
+                    </span>
+                  ) : isLocating ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs bg-slate-100 dark:bg-slate-800 text-slate-500 animate-pulse border border-slate-200 dark:border-slate-700">
+                      <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
+                      <span>{t("location_detecting")}</span>
+                    </span>
+                  ) : !userCoords && !locationDenied ? (
+                    <button
+                      type="button"
+                      onClick={requestLocation}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200/70 dark:border-indigo-800/70 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-all cursor-pointer active:scale-95"
+                    >
+                      <span>📍</span>
+                      <span>{t("enable_location")}</span>
+                    </button>
+                  ) : null}
                 </div>
 
                 <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-400">
@@ -170,7 +169,7 @@ export default function PlaceDetailContent({ id }) {
                     {t("price_label")}
                   </span>
                   <div className="font-black text-3xl text-slate-900 dark:text-white mt-1">
-                    {place.price?.toLocaleString(language === "ru" ? "ru-RU" : "uz-UZ")}{" "}
+                    {formatPrice(place.price, language)}{" "}
                     <span className="text-base font-semibold text-indigo-600 dark:text-indigo-400">
                       {t("currency")}
                     </span>

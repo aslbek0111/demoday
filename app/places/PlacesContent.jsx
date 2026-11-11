@@ -5,13 +5,17 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
+import PlaceCard from "../../components/PlaceCard";
 import { places, categories, getLocalizedPlace, getLocalizedCategoryName } from "../../data/places";
 import { useLanguage } from "../language-provider";
+import { useLocation } from "../location-provider";
+import { calculateHaversineDistance } from "../../lib/geo";
 
 export default function PlacesContent() {
   const searchParams = useSearchParams();
   const initialCategory = searchParams?.get("category") || "all";
   const { language, t } = useLanguage();
+  const { userLocation, status: locationStatus, requestLocation } = useLocation();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
@@ -84,10 +88,35 @@ export default function PlacesContent() {
       result = [...result].sort((a, b) => b.price - a.price);
     } else if (sortBy === "reviews") {
       result = [...result].sort((a, b) => b.reviewsCount - a.reviewsCount);
+    } else if (sortBy === "distance") {
+      if (userLocation) {
+        result = [...result].sort((a, b) => {
+          const coordsA = a.coords;
+          const coordsB = b.coords;
+          if (!coordsA && !coordsB) return 0;
+          if (!coordsA) return 1;
+          if (!coordsB) return -1;
+          const distA =
+            calculateHaversineDistance(
+              userLocation.lat,
+              userLocation.lng,
+              coordsA[0],
+              coordsA[1]
+            ) ?? Infinity;
+          const distB =
+            calculateHaversineDistance(
+              userLocation.lat,
+              userLocation.lng,
+              coordsB[0],
+              coordsB[1]
+            ) ?? Infinity;
+          return distA - distB;
+        });
+      }
     }
 
     return result;
-  }, [localizedPlaces, searchQuery, selectedCategory, selectedCity, sortBy]);
+  }, [localizedPlaces, searchQuery, selectedCategory, selectedCity, sortBy, userLocation]);
 
   const resetFilters = () => {
     setSearchQuery("");
@@ -182,14 +211,21 @@ export default function PlacesContent() {
                   </select>
                 </div>
 
-                {/* Saralash */}
+                  {/* Saralash */}
                 <div className="md:col-span-3">
                   <select
                     value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSortBy(val);
+                      if (val === "distance" && locationStatus !== "granted") {
+                        requestLocation();
+                      }
+                    }}
                     className="w-full py-2.5 px-3 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                   >
                     <option value="recommended">{t("sort_recommended")}</option>
+                    <option value="distance">{t("sort_distance")}</option>
                     <option value="rating">{t("sort_rating")}</option>
                     <option value="reviews">{t("sort_reviews")}</option>
                     <option value="price_asc">{t("sort_price_asc")}</option>
@@ -250,6 +286,34 @@ export default function PlacesContent() {
             </div>
           </div>
 
+          {/* Lokatsiya yoqilmagan bo'lsa masofa saralash banneri */}
+          {sortBy === "distance" && locationStatus !== "granted" && (
+            <div className="bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80 rounded-2xl p-4 sm:p-5 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm animate-in fade-in duration-200">
+              <div className="flex items-center gap-3.5 text-center sm:text-left">
+                <span className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xl shrink-0 shadow-sm">
+                  📍
+                </span>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                    {t("nearby_banner_title")}
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-relaxed">
+                    {t("nearby_banner_desc")}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={requestLocation}
+                disabled={locationStatus === "loading"}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm active:scale-95 shrink-0 cursor-pointer disabled:opacity-60 flex items-center gap-2"
+              >
+                <span>{locationStatus === "loading" ? t("location_detecting") : t("nearby_banner_btn")}</span>
+                <span>→</span>
+              </button>
+            </div>
+          )}
+
           {filteredPlaces.length === 0 ? (
             <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 max-w-lg mx-auto">
               <div className="text-5xl mb-3">🔍</div>
@@ -269,95 +333,7 @@ export default function PlacesContent() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredPlaces.map((place) => (
-                <div
-                  key={place.id}
-                  className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md dark:hover:shadow-slate-950/50 transition-all flex flex-col group"
-                >
-                  {/* Rasm va Badge */}
-                  <div className="relative h-48 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
-                    <img
-                      src={place.image}
-                      alt={place.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      loading="lazy"
-                    />
-                    <span
-                      className={`absolute top-3 left-3 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm ${place.badgeColor}`}
-                    >
-                      {place.badge}
-                    </span>
-                    <span className="absolute top-3 right-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur text-slate-800 dark:text-slate-100 text-xs font-bold px-2 py-1 rounded-md shadow-sm flex items-center gap-1 border border-slate-200/50 dark:border-slate-700/50">
-                      ⭐ {place.rating}
-                      <span className="text-slate-400 dark:text-slate-500 font-normal">
-                        ({place.reviewsCount})
-                      </span>
-                    </span>
-                  </div>
-
-                  {/* Joy ma'lumotlari */}
-                  <div className="p-5 flex-1 flex flex-col">
-                    <div className="flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400 font-semibold mb-1 uppercase tracking-wide">
-                      <span>{place.category}</span>
-                      <span className="text-slate-400 dark:text-slate-500 font-normal normal-case">
-                        {place.openHours}
-                      </span>
-                    </div>
-
-                    <h3 className="font-bold text-lg text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mb-1 line-clamp-1">
-                      {place.name}
-                    </h3>
-
-                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mb-3">
-                      <span>📍</span> {place.city} ({place.address})
-                    </p>
-
-                    <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mb-4 leading-relaxed">
-                      {place.description}
-                    </p>
-
-                    {/* Qulayliklar */}
-                    <div className="flex flex-wrap gap-1.5 mb-5">
-                      {place.amenities.slice(0, 3).map((amenity, idx) => (
-                        <span
-                          key={idx}
-                          className="text-[11px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md border border-transparent dark:border-slate-700/50"
-                        >
-                          ✓ {amenity}
-                        </span>
-                      ))}
-                      {place.amenities.length > 3 && (
-                        <span className="text-[11px] text-slate-400 dark:text-slate-500 px-1 py-0.5">
-                          +{place.amenities.length - 3} {t("more_amenities")}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Narx va Band qilish tugmasi */}
-                    <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <div>
-                        <span className="text-[11px] text-slate-400 dark:text-slate-500 block leading-tight">
-                          {t("price_label")}
-                        </span>
-                        <div className="font-extrabold text-slate-900 dark:text-white text-base">
-                          {place.price.toLocaleString(language === "ru" ? "ru-RU" : "uz-UZ")}{" "}
-                          {t("currency")}
-                          <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
-                            {" "}
-                            / {place.priceUnit}
-                          </span>
-                        </div>
-                      </div>
-
-                      <Link
-                        href={`/booking?id=${place.id}`}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow transition-all active:scale-95 flex items-center gap-1"
-                      >
-                        {t("book_btn")}
-                        <span>→</span>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
+                <PlaceCard key={place.id} place={place} />
               ))}
             </div>
           )}

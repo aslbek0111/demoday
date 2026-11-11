@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import PlaceCard from "../components/PlaceCard";
 import { places, categories, getLocalizedPlace, getLocalizedCategoryName } from "../data/places";
 import { useLanguage } from "./language-provider";
 
@@ -191,95 +192,7 @@ export default function HomePage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredPlaces.map((place) => (
-                <div
-                  key={place.id}
-                  className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm hover:shadow-md dark:hover:shadow-slate-950/50 transition-all flex flex-col group"
-                >
-                  {/* Rasm va Badge */}
-                  <div className="relative h-48 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
-                    <img
-                      src={place.image}
-                      alt={place.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      loading="lazy"
-                    />
-                    <span
-                      className={`absolute top-3 left-3 text-white text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm ${place.badgeColor}`}
-                    >
-                      {place.badge}
-                    </span>
-                    <span className="absolute top-3 right-3 bg-white/90 dark:bg-slate-900/90 backdrop-blur text-slate-800 dark:text-slate-100 text-xs font-bold px-2 py-1 rounded-md shadow-sm flex items-center gap-1 border border-slate-200/50 dark:border-slate-700/50">
-                      ⭐ {place.rating}
-                      <span className="text-slate-400 dark:text-slate-500 font-normal">
-                        ({place.reviewsCount})
-                      </span>
-                    </span>
-                  </div>
-
-                  {/* Joy ma'lumotlari */}
-                  <div className="p-5 flex-1 flex flex-col">
-                    <div className="flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400 font-semibold mb-1 uppercase tracking-wide">
-                      <span>{place.category}</span>
-                      <span className="text-slate-400 dark:text-slate-500 font-normal normal-case">
-                        {place.openHours}
-                      </span>
-                    </div>
-
-                    <h3 className="font-bold text-lg text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors mb-1 line-clamp-1">
-                      {place.name}
-                    </h3>
-
-                    <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mb-3">
-                      <span>📍</span> {place.city}
-                    </p>
-
-                    <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mb-4 leading-relaxed">
-                      {place.description}
-                    </p>
-
-                    {/* Qulayliklar */}
-                    <div className="flex flex-wrap gap-1.5 mb-5">
-                      {place.amenities.slice(0, 3).map((amenity, idx) => (
-                        <span
-                          key={idx}
-                          className="text-[11px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md border border-transparent dark:border-slate-700/50"
-                        >
-                          ✓ {amenity}
-                        </span>
-                      ))}
-                      {place.amenities.length > 3 && (
-                        <span className="text-[11px] text-slate-400 dark:text-slate-500 px-1 py-0.5">
-                          +{place.amenities.length - 3} {t("more_amenities")}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Narx va Band qilish tugmasi */}
-                    <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <div>
-                        <span className="text-[11px] text-slate-400 dark:text-slate-500 block leading-tight">
-                          {t("price_label")}
-                        </span>
-                        <div className="font-extrabold text-slate-900 dark:text-white text-base">
-                          {place.price.toLocaleString(language === "ru" ? "ru-RU" : "uz-UZ")}{" "}
-                          {t("currency")}
-                          <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
-                            {" "}
-                            / {place.priceUnit}
-                          </span>
-                        </div>
-                      </div>
-
-                      <Link
-                        href={`/booking?id=${place.id}`}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-sm hover:shadow transition-all active:scale-95 flex items-center gap-1"
-                      >
-                        {t("book_btn")}
-                        <span>→</span>
-                      </Link>
-                    </div>
-                  </div>
-                </div>
+                <PlaceCard key={place.id} place={place} />
               ))}
             </div>
           )}

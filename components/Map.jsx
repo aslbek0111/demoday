@@ -1,50 +1,34 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  useMap,
-} from "react-leaflet";
+import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { formatPrice } from "../data/places";
 
 // Kategoriya bo'yicha ranglar va emojilar
 const categoryStyles = {
   restaurant: {
     color: "#f59e0b", // amber-500
-    bgClass: "bg-amber-500",
-    borderClass: "border-amber-400",
     icon: "🍽️",
     label: "Restoran",
   },
   sport: {
     color: "#10b981", // emerald-500
-    bgClass: "bg-emerald-500",
-    borderClass: "border-emerald-400",
     icon: "⚽",
     label: "Sport",
   },
   resort: {
     color: "#0284c7", // sky-600
-    bgClass: "bg-sky-600",
-    borderClass: "border-sky-400",
     icon: "🏡",
     label: "Dacha",
   },
   coworking: {
     color: "#8b5cf6", // purple-500
-    bgClass: "bg-purple-600",
-    borderClass: "border-purple-400",
     icon: "💻",
     label: "Kovorking",
   },
   cafe: {
     color: "#f43f5e", // rose-500
-    bgClass: "bg-rose-500",
-    borderClass: "border-rose-400",
     icon: "☕",
     label: "Kafe",
   },
@@ -52,7 +36,7 @@ const categoryStyles = {
 
 // Custom zamonaviy marker yaratish funksiyasi
 function createCustomPin(place, isSelected) {
-  const meta = categoryStyles[place.categoryKey] || {
+  const meta = (place && place.categoryKey && categoryStyles[place.categoryKey]) || {
     color: "#6366f1",
     icon: "📍",
   };
@@ -84,25 +68,125 @@ function createCustomPin(place, isSelected) {
   });
 }
 
-// Xaritani tanlangan joyga silliq boshqarish komponenti
-function MapController({ selectedPlace, places }) {
-  const map = useMap();
-  const prevSelectedIdRef = useRef(null);
+function createPopupHtml(place, language, t) {
+  if (!place) return "";
+  const categoryIcon = (place.categoryKey && categoryStyles[place.categoryKey]?.icon) || "📍";
+  const verifiedBadge = place.hasExactCoords
+    ? (t("exact_location") || "Aniq lokatsiya")
+    : (t("unverified_location") || "Taxminiy lokatsiya");
+  const formattedPrice = formatPrice ? formatPrice(place.price, language) : (place.price || "");
+  const currency = t("currency") || "so'm";
+  const priceLabel = t("price_label") || "Narxi:";
+  const detailBtnText = t("map_detail_btn") || "Batafsil";
+  const bookBtnText = t("map_book_btn") || "Band qilish";
+  const placeName = place.name || "";
+  const placeImage = place.image || "";
+  const placeBadge = place.badge || "";
+  const placeRating = place.rating ?? 0;
+  const placeReviewsCount = place.reviewsCount ?? 0;
+  const placeCategory = place.category || "";
+  const placeCity = place.city || "";
+  const placeAddress = place.address || "";
+  const placePriceUnit = place.priceUnit || "";
+  const placeOpenHours = place.openHours || "";
 
-  useEffect(() => {
-    if (selectedPlace && selectedPlace.coords && selectedPlace.id !== prevSelectedIdRef.current) {
-      prevSelectedIdRef.current = selectedPlace.id;
-      map.flyTo(selectedPlace.coords, Math.max(map.getZoom(), 13), {
-        duration: 1.0,
-        easeLinearity: 0.25,
-      });
-    }
-  }, [selectedPlace, map]);
+  return `
+    <div class="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-sans" style="width: 290px;">
+      <!-- Rasm va Badge -->
+      <div style="position: relative; height: 9rem; width: 100%; overflow: hidden; background-color: #f1f5f9;">
+        <img
+          src="${placeImage}"
+          alt="${placeName}"
+          style="width: 100%; height: 100%; object-fit: cover;"
+          loading="lazy"
+        />
+        <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(15,23,42,0.6), transparent);"></div>
+        
+        <span class="${place.badgeColor || 'bg-indigo-600'}" style="position: absolute; top: 0.625rem; left: 0.625rem; color: #ffffff; font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 9999px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+          ${placeBadge}
+        </span>
 
-  return null;
+        <span style="position: absolute; top: 0.625rem; right: 0.625rem; background: rgba(255,255,255,0.95); color: #1e293b; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 4px; border: 1px solid rgba(226,232,240,0.6);">
+          ⭐ ${placeRating}
+          <span style="color: #94a3b8; font-weight: 400; font-size: 11px;">
+            (${placeReviewsCount})
+          </span>
+        </span>
+
+        <div style="position: absolute; bottom: 0.5rem; left: 0.625rem; right: 0.625rem; color: #ffffff;">
+          <p style="font-size: 11px; font-weight: 500; color: #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 4px; margin: 0;">
+            <span>${categoryIcon}</span>
+            <span>${placeCategory}</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Asosiy ma'lumotlar -->
+      <div style="padding: 0.875rem; display: flex; flex-direction: column; gap: 0.5rem;">
+        <a
+          href="/places/${place.id}"
+          style="font-weight: 700; font-size: 14px; color: inherit; text-decoration: none; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+        >
+          ${placeName}
+        </a>
+
+        <p style="font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 4px; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          <span>📍</span>
+          <span>${placeCity}</span>
+          <span style="color: #cbd5e1;">•</span>
+          <span style="font-size: 11px;">${placeAddress}</span>
+        </p>
+
+        <!-- Lokatsiya holati -->
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #047857; background-color: #ecfdf5; padding: 2px 8px; border-radius: 6px; border: 1px solid #a7f3d0; width: fit-content;">
+          <span>✓</span>
+          <span style="font-weight: 500;">
+            ${verifiedBadge}
+          </span>
+        </div>
+
+        <!-- Narx -->
+        <div style="padding-top: 0.5rem; border-top: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <span style="font-size: 10px; color: #94a3b8; display: block; line-height: 1.2;">
+              ${priceLabel}
+            </span>
+            <span style="font-weight: 800; font-size: 14px;">
+              ${formattedPrice} ${currency}
+            </span>
+            <span style="font-size: 11px; color: #64748b;">
+              / ${placePriceUnit}
+            </span>
+          </div>
+
+          <span style="font-size: 11px; color: #64748b; background-color: #f1f5f9; padding: 4px 8px; border-radius: 6px;">
+            🕒 ${placeOpenHours}
+          </span>
+        </div>
+
+        <!-- Tugmalar -->
+        <div style="padding-top: 0.25rem; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <button
+            type="button"
+            data-open-detail="${place.id}"
+            style="width: 100%; text-align: center; padding: 8px 10px; font-size: 12px; font-weight: 700; color: #334155; background-color: #f1f5f9; border-radius: 12px; border: none; cursor: pointer;"
+          >
+            ${detailBtnText}
+          </button>
+
+          <a
+            href="/booking?id=${place.id}"
+            style="width: 100%; text-align: center; padding: 8px 10px; font-size: 12px; font-weight: 700; color: #ffffff; background-color: #4f46e5; border-radius: 12px; text-decoration: none; display: block; box-sizing: border-box;"
+          >
+            ${bookBtnText} →
+          </a>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
-export default function Map({
+export default function PlacesMap({
   places = [],
   selectedPlace = null,
   onSelectPlace,
@@ -110,155 +194,150 @@ export default function Map({
   isDark = false,
   language = "uz",
   t = (k) => k,
-}) {
-  // Standart markaz (O'zbekiston / Toshkent)
-  const defaultCenter = [41.3111, 69.2797];
+} = {}) {
+  // places massiv yoki obyekt ichida kelsa ham to'g'ri qabul qilish (fallback)
+  const safePlaces = Array.isArray(places)
+    ? places
+    : Array.isArray(places?.places)
+    ? places.places
+    : Array.isArray(places?.data)
+    ? places.data
+    : [];
 
-  const markerInstances = useMemo(() => {
-    return places
-      .filter((p) => Array.isArray(p.coords) && p.coords.length === 2)
-      .map((place) => {
-        const isSelected = selectedPlace && selectedPlace.id === place.id;
-        const icon = createCustomPin(place, isSelected);
-        return { place, icon, isSelected };
+  const defaultCenter = [41.3111, 69.2797];
+  const containerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markersLayerRef = useRef(null);
+  const markersMapRef = useRef(new globalThis.Map());
+  const prevSelectedIdRef = useRef(null);
+  const onOpenDetailRef = useRef(onOpenDetail);
+  const placesRef = useRef(safePlaces);
+
+  useEffect(() => {
+    onOpenDetailRef.current = onOpenDetail;
+    placesRef.current = safePlaces;
+  }, [onOpenDetail, safePlaces]);
+
+  // 1. Initialize Map once
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const markersMap = markersMapRef.current;
+
+    // React Strict Mode (mount -> cleanup -> mount) da Leaflet id qolib ketishining oldini olish
+    if (containerRef.current._leaflet_id && !mapInstanceRef.current) {
+      delete containerRef.current._leaflet_id;
+    }
+
+    if (!mapInstanceRef.current) {
+      const initialCenter = selectedPlace?.coords || defaultCenter;
+      const map = L.map(containerRef.current, {
+        center: initialCenter,
+        zoom: 12,
+        scrollWheelZoom: true,
       });
-  }, [places, selectedPlace]);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      }).addTo(map);
+
+      const markersLayer = L.layerGroup().addTo(map);
+      markersLayerRef.current = markersLayer;
+      mapInstanceRef.current = map;
+
+      // Delegate detail button clicks inside Leaflet popups
+      map.on("popupopen", (e) => {
+        const popupEl = e.popup.getElement();
+        if (!popupEl) return;
+        const btn = popupEl.querySelector("[data-open-detail]");
+        if (btn) {
+          btn.onclick = (evt) => {
+            evt.preventDefault();
+            const id = Number(btn.getAttribute("data-open-detail"));
+            const found = placesRef.current.find((p) => p.id === id);
+            if (found && onOpenDetailRef.current) {
+              onOpenDetailRef.current(found);
+            }
+          };
+        }
+      });
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markersLayerRef.current = null;
+        markersMap.clear();
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 2. Update Markers when safePlaces, selectedPlace, or language changes
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const markersLayer = markersLayerRef.current;
+    if (!map || !markersLayer) return;
+
+    markersLayer.clearLayers();
+    markersMapRef.current.clear();
+
+    const validPlaces = safePlaces.filter(
+      (p) => p && Array.isArray(p.coords) && p.coords.length === 2 && !isNaN(p.coords[0]) && !isNaN(p.coords[1])
+    );
+
+    validPlaces.forEach((place) => {
+      const isSelected = selectedPlace && selectedPlace.id === place.id;
+      const icon = createCustomPin(place, isSelected);
+
+      const marker = L.marker(place.coords, { icon });
+      const html = createPopupHtml(place, language, t);
+
+      marker.bindPopup(html, {
+        minWidth: 280,
+        maxWidth: 320,
+        className: "custom-popup",
+      });
+
+      marker.on("click", () => {
+        if (onSelectPlace) {
+          onSelectPlace(place);
+        }
+      });
+
+      marker.addTo(markersLayer);
+      markersMapRef.current.set(place.id, marker);
+    });
+  }, [safePlaces, selectedPlace, language, t, onSelectPlace]);
+
+  // 3. Smooth flyTo and popup sync when selectedPlace changes
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !selectedPlace?.coords) return;
+
+    if (selectedPlace.id !== prevSelectedIdRef.current) {
+      prevSelectedIdRef.current = selectedPlace.id;
+      map.flyTo(selectedPlace.coords, Math.max(map.getZoom(), 13), {
+        duration: 1.0,
+        easeLinearity: 0.25,
+      });
+
+      const marker = markersMapRef.current.get(selectedPlace.id);
+      if (marker && !marker.isPopupOpen()) {
+        marker.openPopup();
+      }
+    }
+  }, [selectedPlace]);
 
   return (
     <div className="w-full h-full relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm bg-slate-100 dark:bg-slate-900">
-      <MapContainer
-        center={selectedPlace?.coords || defaultCenter}
-        zoom={12}
-        scrollWheelZoom={true}
+      <div
+        ref={containerRef}
         className="w-full h-full z-10"
         style={{ minHeight: "100%", width: "100%" }}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          maxZoom={19}
-        />
-
-        <MapController selectedPlace={selectedPlace} places={places} />
-
-        {markerInstances.map(({ place, icon }) => (
-          <Marker
-            key={place.id}
-            position={place.coords}
-            icon={icon}
-            eventHandlers={{
-              click: () => {
-                if (onSelectPlace) {
-                  onSelectPlace(place);
-                }
-              },
-            }}
-          >
-            <Popup minWidth={280} maxWidth={320} className="custom-popup">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-100 font-sans">
-                {/* Rasm va Badge */}
-                <div className="relative h-36 w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
-                  <img
-                    src={place.image}
-                    alt={place.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent"></div>
-                  
-                  <span
-                    className={`absolute top-2.5 left-2.5 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full shadow-sm ${
-                      place.badgeColor || "bg-indigo-600"
-                    }`}
-                  >
-                    {place.badge}
-                  </span>
-
-                  <span className="absolute top-2.5 right-2.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur text-slate-800 dark:text-slate-100 text-xs font-bold px-2 py-0.5 rounded-md shadow-sm flex items-center gap-1 border border-slate-200/60 dark:border-slate-700/60">
-                    ⭐ {place.rating}
-                    <span className="text-slate-400 dark:text-slate-500 font-normal text-[11px]">
-                      ({place.reviewsCount})
-                    </span>
-                  </span>
-
-                  <div className="absolute bottom-2 left-2.5 right-2.5 text-white">
-                    <p className="text-[11px] font-medium text-slate-200 opacity-90 uppercase tracking-wider flex items-center gap-1">
-                      <span>{categoryStyles[place.categoryKey]?.icon || "📍"}</span>
-                      <span>{place.category}</span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Asosiy ma'lumotlar */}
-                <div className="p-3.5 space-y-2">
-                  <a
-                    href={`/places/${place.id}`}
-                    className="font-bold text-sm text-slate-900 dark:text-white leading-tight line-clamp-1 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors block"
-                  >
-                    {place.name}
-                  </a>
-
-                  <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 line-clamp-1">
-                    <span>📍</span>
-                    <span>{place.city}</span>
-                    <span className="text-slate-400 dark:text-slate-600">•</span>
-                    <span className="text-[11px] truncate">{place.address}</span>
-                  </p>
-
-                  {/* Lokatsiya holati (haqiqiy koordinata yoki tekshirish) */}
-                  <div className="flex items-center gap-1.5 text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 w-fit">
-                    <span>✓</span>
-                    <span className="font-medium">
-                      {place.hasExactCoords ? t("exact_location") : t("unverified_location")}
-                    </span>
-                  </div>
-
-                  {/* Narx */}
-                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 block leading-tight">
-                        {t("price_label")}
-                      </span>
-                      <span className="font-extrabold text-sm text-slate-900 dark:text-white">
-                        {place.price?.toLocaleString(language === "ru" ? "ru-RU" : "uz-UZ")}{" "}
-                        {t("currency")}
-                      </span>
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {" "}
-                        / {place.priceUnit}
-                      </span>
-                    </div>
-
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md">
-                      🕒 {place.openHours}
-                    </span>
-                  </div>
-
-                  {/* Tugmalar */}
-                  <div className="pt-1 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (onOpenDetail) onOpenDetail(place);
-                      }}
-                      className="w-full text-center py-2 px-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all cursor-pointer active:scale-95"
-                    >
-                      {t("map_detail_btn")}
-                    </button>
-
-                    <a
-                      href={`/booking?id=${place.id}`}
-                      className="w-full text-center py-2 px-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 rounded-xl shadow-sm transition-all block active:scale-95"
-                    >
-                      {t("map_book_btn")} →
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
+      />
     </div>
   );
 }

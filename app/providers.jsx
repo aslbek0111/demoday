@@ -2,6 +2,8 @@
 
 import { ThemeProvider } from "next-themes";
 import { LanguageProvider } from "./language-provider";
+import { WishlistProvider } from "./wishlist-provider";
+import { LocationProvider } from "./location-provider";
 
 export default function Providers({ children }) {
   return (
@@ -11,7 +13,11 @@ export default function Providers({ children }) {
       enableSystem={false}
     >
       <LanguageProvider>
-        {children}
+        <WishlistProvider>
+          <LocationProvider>
+            {children}
+          </LocationProvider>
+        </WishlistProvider>
       </LanguageProvider>
     </ThemeProvider>
   );
